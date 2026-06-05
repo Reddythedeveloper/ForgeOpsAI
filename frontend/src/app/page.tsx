@@ -18,28 +18,41 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    setMessages([...messages, { role: 'user', content: input }]);
+    const userMessage = input;
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInput('');
     setIsTyping(true);
     
-    // Simulate AI reasoning and response
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question: userMessage }),
+      });
+      
+      const data = await response.json();
+      
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'I investigated the drift alert for the `fraud-v2` model. The telemetry shows that precision declined after the feature distribution shifted in `merchant_region`. Based on the runbook, I recommend re-running the backfill simulation tool before proceeding with retraining.'
+        content: data.reply
       }]);
       
-      setEvidence([
-        { type: 'resource', tag: 'metrics', title: 'fraud-v2 Weekly Metrics', detail: 'Precision: 0.88 (declined from 0.92)\nRecall: 0.86\nTraffic: Normal' },
-        { type: 'tool', tag: 'alerts', title: 'open_alert_bundle', detail: '{"active_alerts": ["Drift detected in merchant_region feature slice"]}' },
-        { type: 'retrieval', tag: 'runbook', title: 'runbook_fraud_v2_drift', detail: 'If precision drops below 0.90, check feature distribution for `merchant_region`... Re-run backfill simulation tool to estimate impact.' }
-      ]);
+      setEvidence(data.evidence || []);
+    } catch (error) {
+      console.error("Failed to fetch response:", error);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "I'm sorry, I couldn't connect to the backend server. Please ensure the API is running on port 8000."
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 2000);
+    }
   };
 
   const onEnterPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -57,9 +70,9 @@ export default function Home() {
             <div key={i} className={`message ${msg.role}`}>
               <div className="message-avatar">
                 {msg.role === 'assistant' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                 )}
               </div>
               <div className="message-content">
@@ -73,7 +86,7 @@ export default function Home() {
           {isTyping && (
              <div className="message assistant">
                <div className="message-avatar">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
                </div>
                <div className="message-content">
                  <div className="message-name">ForgeOps Copilot</div>
@@ -99,7 +112,7 @@ export default function Home() {
               rows={1}
             />
             <button type="submit" className="chat-submit" disabled={!input.trim() || isTyping}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
             </button>
           </form>
         </div>
@@ -107,13 +120,13 @@ export default function Home() {
 
       <aside className="evidence-drawer">
         <div className="evidence-header">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinelinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           Context & Evidence
         </div>
         <div className="evidence-content">
           {evidence.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinelinejoin="round" style={{ margin: '0 auto 1rem', opacity: 0.5 }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 1rem', opacity: 0.5 }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <p>No operational context gathered yet.</p>
               <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', opacity: 0.7 }}>Ask a question to trigger MCP tools and resource retrieval.</p>
             </div>
